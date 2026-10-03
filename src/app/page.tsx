@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BedDouble, CalendarDays, Calculator, Landmark, ReceiptText, Scale } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { Footer } from "@/components/Footer";
 
 const FEATURES = [
   { icon: Landmark, title: "Profit after the mortgage", text: "Loan interest is an expense, principal is equity. See what each unit really earns, and what reaches your pocket." },
@@ -52,9 +53,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-border py-6 text-center text-xs text-muted">
-        RentaTracker prototype · Built with Next.js, TypeScript, Tailwind CSS and Recharts · All properties, guests and figures are fictional.
-      </footer>
+      <Footer />
     </div>
   );
 }
