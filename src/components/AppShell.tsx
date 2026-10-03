@@ -7,7 +7,7 @@ import { BedDouble, Building2, CalendarDays, DoorOpen, LayoutDashboard, ReceiptT
 import { CURRENCIES, useCurrency, type CurrencyCode } from "@/lib/currency";
 import { TODAY } from "@/data/demo";
 import { Logo } from "@/components/Logo";
-import { Footer } from "@/components/Footer";
+import { AppFooter } from "@/components/Footer";
 import { Select } from "@/components/ui";
 
 const NAV = [
@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <Footer />
+      <AppFooter />
 
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-7 border-t border-border bg-surface/95 backdrop-blur lg:hidden" aria-label="Main">
         {NAV.map(({ href, short, icon: Icon }) => {
