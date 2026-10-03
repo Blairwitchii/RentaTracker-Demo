@@ -20,8 +20,8 @@ const MODE_HELP: Record<PropertyMode, string> = {
 };
 const MANAGE_LINK: Record<PropertyMode, { href: string; label: string }> = {
   "short-stay": { href: "/calendar", label: "Bookings & guests" },
-  "long-term": { href: "/expenses", label: "Expenses" },
-  "multi-door": { href: "/apartments", label: "Doors & tenants" },
+  "long-term": { href: "/tenants", label: "Tenant & rent" },
+  "multi-door": { href: "/tenants", label: "Doors & tenants" },
   bedspace: { href: "/bedspace", label: "Rooms & tenants" },
 };
 
@@ -116,7 +116,7 @@ export default function PropertiesPage() {
                 <dd className="tabular text-right font-medium">{p.loan ? `${money.format(monthlyPayment(p.loan))}/mo` : "None"}</dd>
               </dl>
 
-              <Link href={MANAGE_LINK[p.mode].href} className="mt-4 rounded-full border border-border py-2 text-center text-sm font-medium hover:bg-surface-soft">
+              <Link href={`${MANAGE_LINK[p.mode].href}?property=${p.id}`} className="mt-4 rounded-full border border-border py-2 text-center text-sm font-medium hover:bg-surface-soft">
                 {MANAGE_LINK[p.mode].label} →
               </Link>
             </Card>

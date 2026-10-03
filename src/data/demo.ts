@@ -60,6 +60,8 @@ export type Tenant = {
   status: PaymentStatus;
   lastPayment: string;
   method: PaymentMethod;
+  leaseEnd?: string;
+  deposit?: number;
 };
 
 export type Bed = { id: string; label: string; rent: number; tenant?: Tenant };
@@ -73,7 +75,7 @@ export type Room = {
   currReading: number;
 };
 
-/** One door (unit) in a multi-door apartment building. Tenants pay their own sub-metered utilities. */
+/** A rentable space with one tenant: a door in a multi-door building, or a whole unit on a monthly lease. */
 export type Door = {
   id: string;
   propertyId: string;
@@ -88,7 +90,7 @@ export type Door = {
 
 export type DemoData = { version: number; properties: Property[]; bookings: Booking[]; expenses: Expense[]; rooms: Room[]; doors: Door[] };
 
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
 export const TODAY = "2026-10-03";
 
 /** The 12 months the dashboard reports on. */
@@ -319,6 +321,13 @@ export function createDemoData(): DemoData {
       };
     });
   }
+
+  // ---- monthly rental (one tenant for the whole unit) ----
+  doors.push({
+    ...makeDoors("azure", 1, 18_000)[0],
+    name: "Whole unit",
+    tenant: { name: "Carlo & Bea T.", since: "2025-03-01", dueDay: 1, balance: 0, status: "paid", lastPayment: "2026-10-01", method: "Bank transfer", leaseEnd: "2027-02-28", deposit: 36_000 },
+  });
 
   // ---- expenses (booking-driven costs are calculated in reports, not stored) ----
   let id = 1;

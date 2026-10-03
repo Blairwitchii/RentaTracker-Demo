@@ -75,7 +75,12 @@ export const actions = {
       properties: [...d.properties, property],
       expenses: [...d.expenses, ...recurringExpenses(property, bills, property.id)],
       rooms: property.mode === "bedspace" ? [...d.rooms, ...makeRooms(property.id, rooms ?? 1, bedsPerRoom ?? 4, bedRent ?? 3500, aircon ?? false)] : d.rooms,
-      doors: property.mode === "multi-door" ? [...d.doors, ...makeDoors(property.id, doors ?? 4, doorRent ?? 8000)] : d.doors,
+      doors:
+        property.mode === "multi-door"
+          ? [...d.doors, ...makeDoors(property.id, doors ?? 4, doorRent ?? 8000)]
+          : property.mode === "long-term"
+            ? [...d.doors, { ...makeDoors(property.id, 1, property.monthlyRent ?? 0)[0], name: "Whole unit" }]
+            : d.doors,
     }));
     return property.id;
   },

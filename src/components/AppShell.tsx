@@ -13,7 +13,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", short: "Overview", icon: LayoutDashboard },
   { href: "/properties", label: "Properties", short: "Units", icon: Building2 },
   { href: "/calendar", label: "Calendar", short: "Calendar", icon: CalendarDays },
-  { href: "/apartments", label: "Apartments", short: "Doors", icon: DoorOpen },
+  { href: "/tenants", label: "Tenants", short: "Tenants", icon: DoorOpen },
   { href: "/bedspace", label: "Bedspace", short: "Beds", icon: BedDouble },
   { href: "/expenses", label: "Expenses", short: "Expenses", icon: ReceiptText },
   { href: "/compare", label: "Compare", short: "Compare", icon: Scale },

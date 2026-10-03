@@ -144,17 +144,17 @@ export default function DashboardPage() {
 
       <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <CardTitle hint="Apartment doors and bedspace tenants">Rent collection</CardTitle>
+          <CardTitle hint="Monthly, apartment and bedspace tenants">Rent collection</CardTitle>
           {tenants.length ? (
             <>
-              <Link href="/apartments" className="mb-3 flex items-center justify-between rounded-full bg-brand px-4 py-2.5 text-sm font-medium text-white">
+              <Link href="/tenants" className="mb-3 flex items-center justify-between rounded-full bg-brand px-4 py-2.5 text-sm font-medium text-white">
                 Tenants: {tenants.length}
                 <ArrowUpRight size={16} aria-hidden />
               </Link>
               <CollectionBlocks counts={{ paid: statusCount("paid"), "due-soon": statusCount("due-soon"), overdue: statusCount("overdue") }} owed={owed} />
             </>
           ) : (
-            <p className="text-sm text-muted">No apartment or bedspace tenants in this selection.</p>
+            <p className="text-sm text-muted">No tenants in this selection.</p>
           )}
         </Card>
 

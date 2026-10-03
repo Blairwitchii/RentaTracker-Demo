@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DoorOpen, Droplets, LogOut, MessageCircle, UserPlus, Zap } from "lucide-react";
-import type { Door } from "@/data/demo";
+import type { Door, PropertyMode } from "@/data/demo";
 import { sum } from "@/lib/finance";
+import { MODE_LABEL } from "@/lib/reports";
 import { actions, useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
 import { Card, PageHeader, Select, Stat, StatusBadge } from "@/components/ui";
@@ -12,20 +14,21 @@ import { AddTenantForm, ordinal } from "@/components/tenant";
 
 type Rates = { elec: number; water: number };
 
-export default function ApartmentsPage() {
+export function TenantsView() {
   const money = useMoney();
   const data = useDemoData();
-  const buildings = data.properties.filter((p) => p.mode === "multi-door");
-  const [propertyId, setPropertyId] = useState(buildings[0]?.id ?? "");
+  const requested = useSearchParams().get("property");
+  const buildings = data.properties.filter((p) => p.mode === "multi-door" || p.mode === "long-term");
+  const [propertyId, setPropertyId] = useState(requested ?? buildings[0]?.id ?? "");
   const [rates, setRates] = useState<Rates>({ elec: 12.5, water: 55 });
 
   const property = buildings.find((p) => p.id === propertyId) ?? buildings[0];
   if (!property) {
     return (
       <>
-        <PageHeader title="Apartments" />
+        <PageHeader title="Tenants" />
         <Card className="text-sm text-muted">
-          You have no multi-door apartments.{" "}
+          You have no monthly rentals or apartment buildings.{" "}
           <Link href="/properties" className="font-medium text-brand underline">
             Add one on the Properties page
           </Link>
@@ -38,40 +41,52 @@ export default function ApartmentsPage() {
   const doors = data.doors.filter((d) => d.propertyId === property.id);
   const occupied = doors.filter((d) => d.tenant);
   const unpaid = sum(occupied.map((d) => d.tenant!.balance));
-  const utilities = sum(occupied.map((d) => utilityBill(d, rates)));
+  const metered = property.mode === "multi-door";
+  const utilities = metered ? sum(occupied.map((d) => utilityBill(d, rates))) : 0;
+  const unitWord = metered ? "Doors" : "Units";
 
   return (
     <>
       <PageHeader
-        title="Apartments"
-        description="Multi-door buildings: each door has its own tenant, rent, due date and sub-metered electricity and water."
-        actions={buildings.length > 1 && <Select label="Building" value={property.id} onChange={setPropertyId} options={buildings.map((b) => ({ value: b.id, label: b.name }))} />}
+        title="Tenants"
+        description="Monthly rentals and multi-door apartments: each tenant's rent, due date and unpaid balance. Apartment doors also get sub-metered electricity and water."
+        actions={
+          buildings.length > 1 && (
+            <Select label="Property" value={property.id} onChange={setPropertyId} options={buildings.map((b) => ({ value: b.id, label: `${b.name} · ${MODE_LABEL[b.mode]}` }))} />
+          )
+        }
       />
       <h2 className="mb-4 text-sm font-semibold">
         {property.name} <span className="font-normal text-muted">· {property.location}</span>
       </h2>
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Doors occupied" value={`${occupied.length} / ${doors.length}`} hint={`${doors.length - occupied.length} vacant`} />
+        <Stat label={`${unitWord} occupied`} value={`${occupied.length} / ${doors.length}`} hint={`${doors.length - occupied.length} vacant`} />
         <Stat label="Monthly rent roll" value={money.format(sum(occupied.map((d) => d.rent)))} />
         <Stat label="Unpaid balances (utang)" value={money.format(unpaid)} tone={unpaid ? "critical" : "good"} hint={`${occupied.filter((d) => d.tenant!.status === "overdue").length} overdue`} />
-        <Stat label="Utilities to bill this month" value={money.format(utilities)} hint="Passed on to tenants" />
+        {metered ? (
+          <Stat label="Utilities to bill this month" value={money.format(utilities)} hint="Passed on to tenants" />
+        ) : (
+          <Stat label="Security deposit held" value={money.format(sum(occupied.map((d) => d.tenant!.deposit ?? 0)))} hint="Returned at move-out" />
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {doors.map((door) => (
-          <DoorCard key={door.id} door={door} rates={rates} />
+          <DoorCard key={door.id} door={door} rates={rates} mode={property.mode} />
         ))}
       </div>
 
-      <Card className="mt-4">
-        <h3 className="mb-1 text-base font-semibold">Utility rates</h3>
-        <p className="mb-3 text-xs text-muted">Copy these from the building&apos;s main Meralco and water bills. Every door&apos;s bill updates.</p>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <RateInput label="₱ per kWh" value={rates.elec} onChange={(elec) => setRates((r) => ({ ...r, elec }))} />
-          <RateInput label="₱ per m³ water" value={rates.water} onChange={(water) => setRates((r) => ({ ...r, water }))} />
-        </div>
-      </Card>
+      {metered && (
+        <Card className="mt-4">
+          <h3 className="mb-1 text-base font-semibold">Utility rates</h3>
+          <p className="mb-3 text-xs text-muted">Copy these from the building&apos;s main Meralco and water bills. Every door&apos;s bill updates.</p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <RateInput label="₱ per kWh" value={rates.elec} onChange={(elec) => setRates((r) => ({ ...r, elec }))} />
+            <RateInput label="₱ per m³ water" value={rates.water} onChange={(water) => setRates((r) => ({ ...r, water }))} />
+          </div>
+        </Card>
+      )}
     </>
   );
 }
@@ -80,14 +95,15 @@ function utilityBill(door: Door, rates: Rates) {
   return Math.max(0, door.elecCurr - door.elecPrev) * rates.elec + Math.max(0, door.waterCurr - door.waterPrev) * rates.water;
 }
 
-function DoorCard({ door, rates }: { door: Door; rates: Rates }) {
+function DoorCard({ door, rates, mode }: { door: Door; rates: Rates; mode: PropertyMode }) {
+  const metered = mode === "multi-door";
   const money = useMoney();
   const [adding, setAdding] = useState(false);
   const { tenant } = door;
   const kwh = Math.max(0, door.elecCurr - door.elecPrev);
   const m3 = Math.max(0, door.waterCurr - door.waterPrev);
-  const elecBill = kwh * rates.elec;
-  const waterBill = m3 * rates.water;
+  const elecBill = metered ? kwh * rates.elec : 0;
+  const waterBill = metered ? m3 * rates.water : 0;
   const totalDue = tenant ? door.rent + elecBill + waterBill + tenant.balance : 0;
 
   return (
@@ -112,11 +128,24 @@ function DoorCard({ door, rates }: { door: Door; rates: Rates }) {
           <div className="text-sm font-medium">{tenant.name}</div>
           <div className="text-xs text-muted">
             Due every {ordinal(tenant.dueDay)} · {tenant.method}
+            {tenant.leaseEnd && ` · lease until ${new Date(`${tenant.leaseEnd}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}`}
           </div>
 
           <div className="mt-3 space-y-1.5 rounded-2xl bg-surface-soft p-3 text-xs">
-            <MeterRow icon={<Zap size={13} className="text-warning" aria-hidden />} label="Electricity" prev={door.elecPrev} curr={door.elecCurr} unit="kWh" bill={elecBill} onChange={(f, v) => actions.setDoorReading(door.id, f === "prev" ? "elecPrev" : "elecCurr", v)} />
-            <MeterRow icon={<Droplets size={13} className="text-series-1" aria-hidden />} label="Water" prev={door.waterPrev} curr={door.waterCurr} unit="m³" bill={waterBill} onChange={(f, v) => actions.setDoorReading(door.id, f === "prev" ? "waterPrev" : "waterCurr", v)} />
+            {metered ? (
+              <>
+                <MeterRow icon={<Zap size={13} className="text-warning" aria-hidden />} label="Electricity" prev={door.elecPrev} curr={door.elecCurr} unit="kWh" bill={elecBill} onChange={(f, v) => actions.setDoorReading(door.id, f === "prev" ? "elecPrev" : "elecCurr", v)} />
+                <MeterRow icon={<Droplets size={13} className="text-series-1" aria-hidden />} label="Water" prev={door.waterPrev} curr={door.waterCurr} unit="m³" bill={waterBill} onChange={(f, v) => actions.setDoorReading(door.id, f === "prev" ? "waterPrev" : "waterCurr", v)} />
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between text-muted">
+                  <span>Monthly rent</span>
+                  <span className="tabular font-medium text-foreground">{money.format(door.rent)}</span>
+                </div>
+                <div className="text-muted">Tenant pays their own electricity and water accounts.</div>
+              </>
+            )}
             {tenant.balance > 0 && (
               <div className="flex justify-between text-critical">
                 <span>Unpaid balance</span>
