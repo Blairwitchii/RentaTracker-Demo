@@ -1,30 +1,46 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Lightbulb } from "lucide-react";
-import { properties } from "@/data/demo";
 import { sum } from "@/lib/finance";
-import { expenseByCategory, monthlySummary, shortStayStats } from "@/lib/reports";
+import { MODE_LABEL, expenseByCategory, monthlySummary, shortStayStats } from "@/lib/reports";
+import { useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
 import { CashFlowChart, CategoryBars, RevenueExpenseChart } from "@/components/charts";
 import { Card, CardTitle, PageHeader, Select, Stat } from "@/components/ui";
 
-const MODE_LABEL = { "short-stay": "Short stay", "long-term": "Monthly rental", bedspace: "Bedspace" };
-
 export default function DashboardPage() {
   const money = useMoney();
+  const data = useDemoData();
   const [scope, setScope] = useState("all");
-  const ids = scope === "all" ? properties.map((p) => p.id) : [scope];
+  const inScope = scope === "all" ? data.properties : data.properties.filter((p) => p.id === scope);
+  const ids = inScope.map((p) => p.id);
 
-  const months = monthlySummary(ids);
-  const categories = expenseByCategory(ids);
-  const sunset = shortStayStats("sunset");
+  const months = monthlySummary(data, ids);
+  const categories = expenseByCategory(data, ids);
+  const shortStay = inScope.find((p) => p.mode === "short-stay");
+  const stats = shortStay ? shortStayStats(data, shortStay.id) : null;
 
   const revenue = sum(months.map((m) => m.revenue));
   const cost = sum(months.map((m) => m.expenses));
   const profit = revenue - cost;
   const cashFlow = sum(months.map((m) => m.cashFlow));
-  const loanShare = sunset.loanPayment / (sunset.revenue / 12);
+
+  if (data.properties.length === 0) {
+    return (
+      <>
+        <PageHeader title="Profit dashboard" />
+        <Card className="text-center text-sm text-muted">
+          No properties yet.{" "}
+          <Link href="/properties" className="font-medium text-brand underline">
+            Add your first unit
+          </Link>
+          .
+        </Card>
+      </>
+    );
+  }
 
   return (
     <>
@@ -34,9 +50,9 @@ export default function DashboardPage() {
         actions={
           <Select
             label="Property"
-            value={scope}
+            value={inScope.length === 1 ? scope : "all"}
             onChange={setScope}
-            options={[{ value: "all", label: "All properties" }, ...properties.map((p) => ({ value: p.id, label: p.name }))]}
+            options={[{ value: "all", label: "All properties" }, ...data.properties.map((p) => ({ value: p.id, label: p.name }))]}
           />
         }
       />
@@ -44,22 +60,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Revenue" value={money.format(revenue)} hint={`${money.format(revenue / 12)} / month`} />
         <Stat label="Expenses" value={money.format(cost)} hint="Includes loan interest" />
-        <Stat label="Net profit" value={money.format(profit)} tone={profit >= 0 ? "good" : "critical"} hint={`${Math.round((profit / revenue) * 100)}% margin`} />
-        <Stat
-          label="Cash flow after loan"
-          value={money.format(cashFlow)}
-          tone={cashFlow >= 0 ? "good" : "critical"}
-          hint="What actually reached your pocket"
-        />
+        <Stat label="Net profit" value={money.format(profit)} tone={profit >= 0 ? "good" : "critical"} hint={revenue ? `${Math.round((profit / revenue) * 100)}% margin` : undefined} />
+        <Stat label="Cash flow after loan" value={money.format(cashFlow)} tone={cashFlow >= 0 ? "good" : "critical"} hint="What actually reached your pocket" />
       </div>
 
-      {(scope === "all" || scope === "sunset") && (
+      {shortStay && stats && stats.loanPayment > 0 && Number.isFinite(stats.breakEven) && (
         <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <Lightbulb size={20} className="mt-0.5 shrink-0 text-warning" aria-hidden />
           <p>
-            <strong>Sunset Bay needs {sunset.breakEven} booked nights a month to break even</strong> after the full loan payment. It
-            averaged {sunset.avgNightsPerMonth.toFixed(1)} nights. The loan payment alone takes {Math.round(loanShare * 100)}% of its
-            booking revenue.
+            <strong>
+              {shortStay.name} needs {stats.breakEven} booked nights a month to break even
+            </strong>{" "}
+            after the full loan payment. It averaged {stats.avgNightsPerMonth.toFixed(1)} nights.
+            {stats.revenue > 0 && ` The loan payment alone takes ${Math.round((stats.loanPayment / (stats.revenue / 12)) * 100)}% of its booking revenue.`}
           </p>
         </div>
       )}
@@ -81,17 +94,16 @@ export default function DashboardPage() {
           <CashFlowChart data={months} />
         </Card>
         <Card>
-          <CardTitle>Properties</CardTitle>
+          <CardTitle hint={<Link href="/properties" className="text-brand underline">Add or remove units</Link>}>Properties</CardTitle>
           <ul className="divide-y divide-border">
-            {properties.map((p) => {
-              const m = monthlySummary([p.id]);
-              const cf = sum(m.map((x) => x.cashFlow));
+            {data.properties.map((p) => {
+              const cf = sum(monthlySummary(data, [p.id]).map((x) => x.cashFlow));
               return (
                 <li key={p.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{p.name}</div>
                     <div className="text-xs text-muted">
-                      {MODE_LABEL[p.mode]} · {p.location}
+                      {p.kind} · {MODE_LABEL[p.mode]} · {p.location}
                     </div>
                   </div>
                   <div className="text-right">
@@ -105,12 +117,16 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {(scope === "all" || scope === "sunset") && (
+      {shortStay && stats && (
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat label="Sunset Bay occupancy" value={`${Math.round(sunset.occupancy * 100)}%`} hint={`${sunset.nights} nights · ${sunset.bookings} bookings`} />
-          <Stat label="Average nightly payout" value={money.format(sunset.adr)} />
-          <Stat label="Monthly loan payment" value={money.format(sunset.loanPayment)} hint="Interest + principal" />
-          <Stat label="Break-even nights" value={`${sunset.breakEven} / month`} hint={`Costs per booked night: ${money.format(sunset.variablePerNight)}`} />
+          <Stat label={`${shortStay.name} occupancy`} value={`${Math.round(stats.occupancy * 100)}%`} hint={`${stats.nights} nights · ${stats.bookings} bookings`} />
+          <Stat label="Average nightly payout" value={money.format(stats.adr)} />
+          <Stat label="Monthly loan payment" value={money.format(stats.loanPayment)} hint={stats.loanPayment ? "Interest + principal" : "No loan"} />
+          <Stat
+            label="Break-even nights"
+            value={Number.isFinite(stats.breakEven) ? `${stats.breakEven} / month` : "—"}
+            hint={`Costs per booked night: ${money.format(stats.variablePerNight)}`}
+          />
         </div>
       )}
     </>

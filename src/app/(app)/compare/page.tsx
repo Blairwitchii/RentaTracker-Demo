@@ -1,23 +1,60 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { MONTHS, type Property } from "@/data/demo";
+import { sum } from "@/lib/finance";
 import { shortStayStats } from "@/lib/reports";
+import { useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
-import { Card, CardTitle, PageHeader } from "@/components/ui";
+import { Card, CardTitle, PageHeader, Select } from "@/components/ui";
 
-const stats = shortStayStats("sunset");
 const axis = { fontSize: 12, fill: "var(--muted)" };
 
 export default function ComparePage() {
+  const data = useDemoData();
+  const units = data.properties.filter((p) => p.mode === "short-stay");
+  const [unitId, setUnitId] = useState(units[0]?.id ?? "");
+  const unit = units.find((u) => u.id === unitId) ?? units[0];
+
+  if (!unit) {
+    return (
+      <>
+        <PageHeader title="Short stay vs. monthly rental" />
+        <Card className="text-sm text-muted">
+          Add a short-stay unit on the{" "}
+          <Link href="/properties" className="font-medium text-brand underline">
+            Properties page
+          </Link>{" "}
+          to compare it against a monthly tenant.
+        </Card>
+      </>
+    );
+  }
+
+  const stats = shortStayStats(data, unit.id);
+  // Dues stay with the owner on a monthly lease; the tenant pays utilities and internet.
+  const dues = sum(data.expenses.filter((e) => e.propertyId === unit.id && e.category === "Association dues").map((e) => e.amount)) / MONTHS.length;
+  return (
+    <Comparison
+      key={unit.id}
+      unit={unit}
+      stats={stats}
+      longTermCosts={dues + 800}
+      picker={units.length > 1 && <Select label="Unit" value={unit.id} onChange={setUnitId} options={units.map((u) => ({ value: u.id, label: u.name }))} />}
+    />
+  );
+}
+
+function Comparison({ unit, stats, longTermCosts, picker }: { unit: Property; stats: ReturnType<typeof shortStayStats>; longTermCosts: number; picker: React.ReactNode }) {
   const money = useMoney();
   // All inputs are stored in PHP and shown in the selected currency.
-  const [nightly, setNightly] = useState(Math.round(stats.adr));
-  const [occupancy, setOccupancy] = useState(Math.round(stats.occupancy * 100));
+  const [nightly, setNightly] = useState(Math.round(stats.adr || 2800));
+  const [occupancy, setOccupancy] = useState(Math.round(stats.occupancy * 100) || 40);
   const [rent, setRent] = useState(22_000);
   const [vacantMonths, setVacantMonths] = useState(1);
 
-  const longTermCosts = 3450 + 800; // dues + upkeep; tenant pays utilities and internet
   const shortStay = (occ: number) => (occ / 100) * 30.4 * (nightly - stats.variablePerNight) - stats.fixedMonthly;
   const longTerm = (rent * (12 - vacantMonths)) / 12 - longTermCosts - stats.loanPayment;
 
@@ -37,7 +74,8 @@ export default function ComparePage() {
     <>
       <PageHeader
         title="Short stay vs. monthly rental"
-        description="Should Sunset Bay stay on Airbnb, or go to a long-term tenant? Both options pay the same loan. Adjust the numbers to match your unit."
+        description={`Should ${unit.name} stay on Airbnb, or go to a long-term tenant? Both options pay the same loan. Adjust the numbers to match your unit.`}
+        actions={picker}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">

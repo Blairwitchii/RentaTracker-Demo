@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { BedDouble, CalendarDays, LayoutDashboard, ReceiptText, Scale } from "lucide-react";
+import { BedDouble, Building2, CalendarDays, LayoutDashboard, ReceiptText, Scale } from "lucide-react";
 import { CURRENCIES, useCurrency, type CurrencyCode } from "@/lib/currency";
 import { Logo } from "@/components/Logo";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/properties", label: "Properties", icon: Building2 },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/expenses", label: "Expenses", icon: ReceiptText },
   { href: "/bedspace", label: "Bedspace", icon: BedDouble },
@@ -62,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="mt-auto rounded-lg bg-background p-3 text-xs leading-relaxed text-muted">
-          Demo account with fictional properties. Changes you make stay in your browser.
+          Demo account with fictional properties. Units, guests and tenants you add are saved in this browser only.
         </div>
       </aside>
 
@@ -79,14 +80,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-6 border-t border-border bg-surface md:hidden">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium ${active ? "text-brand" : "text-muted"}`}
+              className={`flex flex-col items-center gap-1 py-2 text-[10px] font-medium ${active ? "text-brand" : "text-muted"}`}
             >
               <Icon size={20} aria-hidden />
               {label}

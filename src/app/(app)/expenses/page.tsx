@@ -2,17 +2,23 @@
 
 import { useState, type FormEvent } from "react";
 import { Plus, Repeat } from "lucide-react";
-import { MONTHS, TODAY, expenses as demoExpenses, properties, type Expense } from "@/data/demo";
+import { CALENDAR_MONTHS, MONTHS, TODAY } from "@/data/demo";
 import { sum } from "@/lib/finance";
-import { monthLabel, propertyName } from "@/lib/reports";
+import { allExpenses, monthLabel } from "@/lib/reports";
+import { actions, useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
 import { Card, PageHeader, Select, Stat } from "@/components/ui";
+import { Field, inputClass } from "@/components/form";
 
-const CATEGORIES = [...new Set(demoExpenses.map((e) => e.category))].sort();
+const CATEGORIES = ["Association dues", "Cleaning", "Electricity", "Insurance", "Internet", "Lease", "Repairs", "Staff", "Subscriptions", "Supplies", "Taxes & permits", "Water", "Other"];
 
 export default function ExpensesPage() {
   const money = useMoney();
-  const [items, setItems] = useState<Expense[]>(demoExpenses);
+  const data = useDemoData();
+  const items = allExpenses(data);
+  const properties = data.properties;
+  const propertyName = (id: string) => properties.find((p) => p.id === id)?.name ?? "Removed property";
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const [property, setProperty] = useState("all");
   const [month, setMonth] = useState(MONTHS[MONTHS.length - 1]);
   const [category, setCategory] = useState("all");
@@ -33,18 +39,16 @@ export default function ExpensesPage() {
     const amount = money.toPhp(Number(form.get("amount")));
     if (!amount) return;
     const date = String(form.get("date"));
-    setItems((prev) => [
-      ...prev,
-      {
-        id: `NEW${prev.length}`,
-        propertyId: String(form.get("property")),
-        date,
-        description: String(form.get("description")) || String(form.get("category")),
-        category: String(form.get("category")),
-        amount,
-        recurring: form.get("recurring") === "on",
-      },
-    ]);
+    const description = String(form.get("description")) || String(form.get("category"));
+    actions.addExpense({
+      propertyId: String(form.get("property")),
+      date,
+      description,
+      category: String(form.get("category")),
+      amount,
+      recurring: form.get("recurring") === "on",
+    });
+    setJustAdded(description);
     setMonth(date.slice(0, 7));
     setShowForm(false);
   }
@@ -53,7 +57,7 @@ export default function ExpensesPage() {
     <>
       <PageHeader
         title="Expenses"
-        description="Recurring bills (dues, internet, loan interest) are added automatically every month. Log the rest from your phone as they happen."
+        description="Recurring bills (dues, internet, loan interest) repeat every month, and each booking adds its own cleaning, supplies and platform fee. Log the rest as they happen."
         actions={
           <button
             onClick={() => setShowForm((s) => !s)}
@@ -107,7 +111,7 @@ export default function ExpensesPage() {
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Select label="Property" value={property} onChange={setProperty} options={[{ value: "all", label: "All properties" }, ...properties.map((p) => ({ value: p.id, label: p.name }))]} />
-        <Select label="Month" value={month} onChange={setMonth} options={[{ value: "all", label: "All months" }, ...[...MONTHS].reverse().map((m) => ({ value: m, label: monthLabel(m, "long") }))]} />
+        <Select label="Month" value={month} onChange={setMonth} options={[{ value: "all", label: "All months" }, ...[...CALENDAR_MONTHS].reverse().map((m) => ({ value: m, label: monthLabel(m, "long") }))]} />
         <Select label="Category" value={category} onChange={setCategory} options={[{ value: "all", label: "All categories" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]} />
       </div>
 
@@ -131,12 +135,13 @@ export default function ExpensesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.map((e) => (
-                <tr key={e.id} className={e.id.startsWith("NEW") ? "bg-brand-soft" : undefined}>
+                <tr key={e.id} className={justAdded === e.description && !e.auto && !e.recurring ? "bg-brand-soft" : undefined}>
                   <td className="tabular px-5 py-2.5 text-muted">{e.date}</td>
                   <td className="px-3 py-2.5">
                     <span className="flex items-center gap-1.5">
                       {e.description}
                       {e.recurring && <Repeat size={13} className="text-muted" aria-label="Recurring" />}
+                      {e.auto && <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted">from booking</span>}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-muted">{e.category}</td>
@@ -156,16 +161,5 @@ export default function ExpensesPage() {
         </div>
       </Card>
     </>
-  );
-}
-
-const inputClass = "w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-      {label}
-      {children}
-    </label>
   );
 }
