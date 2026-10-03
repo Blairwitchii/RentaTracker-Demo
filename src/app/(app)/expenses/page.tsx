@@ -61,7 +61,7 @@ export default function ExpensesPage() {
         actions={
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
           >
             <Plus size={16} aria-hidden /> Add expense
           </button>
@@ -100,8 +100,8 @@ export default function ExpensesPage() {
               <input name="recurring" type="checkbox" className="h-4 w-4 accent-[var(--brand)]" /> Repeats every month
             </label>
             <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
-              <button className="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white">Save expense</button>
-              <button type="button" onClick={() => setShowForm(false)} className="rounded-md border border-border px-4 py-1.5 text-sm">
+              <button className="rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-white">Save expense</button>
+              <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-border px-4 py-1.5 text-sm">
                 Cancel
               </button>
             </div>

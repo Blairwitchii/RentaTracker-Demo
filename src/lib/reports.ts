@@ -1,4 +1,4 @@
-import { CHANNEL_FEE, MONTHS, daysInMonth, loanForMonth, type DemoData, type Expense, type Property } from "@/data/demo";
+import { CHANNEL_FEE, MONTHS, addDays, daysInMonth, loanForMonth, type DemoData, type Expense, type Property } from "@/data/demo";
 import { breakEvenNights, sum } from "@/lib/finance";
 
 export type MonthSummary = {
@@ -17,6 +17,10 @@ export function incomeFor(data: DemoData, property: Property, month: string): nu
       return sum(data.bookings.filter((b) => b.propertyId === property.id && b.checkIn.startsWith(month)).map((b) => b.payout));
     case "long-term":
       return property.monthlyRent ?? 0;
+    case "multi-door": {
+      if (property.incomeHistory?.[month] !== undefined) return property.incomeHistory[month];
+      return sum(data.doors.filter((d) => d.propertyId === property.id && d.tenant).map((d) => d.rent));
+    }
     case "bedspace": {
       if (property.incomeHistory?.[month] !== undefined) return property.incomeHistory[month];
       const beds = data.rooms.filter((r) => r.propertyId === property.id).flatMap((r) => r.beds);
@@ -99,4 +103,23 @@ export function monthLabel(month: string, style: "short" | "long" = "short") {
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", { month: style, year: style === "long" ? "numeric" : "2-digit", timeZone: "UTC" });
 }
 
-export const MODE_LABEL = { "short-stay": "Short stay", "long-term": "Monthly rental", bedspace: "Bedspace" } as const;
+export const MODE_LABEL = { "short-stay": "Short stay", "long-term": "Monthly rental", "multi-door": "Multi-door apartment", bedspace: "Bedspace" } as const;
+
+/** Share of nights booked in each report month (nights are counted in the month they fall in). */
+export function monthlyOccupancy(data: DemoData, propertyId: string) {
+  const booked = new Set<string>();
+  for (const b of data.bookings.filter((x) => x.propertyId === propertyId)) {
+    for (let i = 0; i < b.nights; i++) booked.add(addDays(b.checkIn, i));
+  }
+  return MONTHS.map((month) => {
+    const days = daysInMonth(month);
+    let nights = 0;
+    for (let d = 1; d <= days; d++) if (booked.has(`${month}-${String(d).padStart(2, "0")}`)) nights++;
+    return { month, occupancy: nights / days };
+  });
+}
+
+/** Percentage change from `before` to `after`; NaN when there's nothing to compare. */
+export function pctChange(after: number, before: number) {
+  return before ? ((after - before) / Math.abs(before)) * 100 : NaN;
+}

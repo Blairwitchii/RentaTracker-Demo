@@ -1,6 +1,6 @@
 # RentaTracker — Demo
 
-**Know your real rental profit.** One dashboard for Airbnb units, monthly rentals and bedspaces that shows what each property actually earns once the bank loan is counted.
+**Know your real rental profit.** One dashboard for Airbnb units, apartments, monthly rentals and bedspaces that shows what each property actually earns once the bank loan is counted.
 
 This repository is a clickable prototype with fictional sample data. It has no backend and no sign-up; everything runs in the browser, and anything you add is saved in your browser's local storage. "Reset demo" on the Properties page restores the sample data.
 
@@ -9,7 +9,8 @@ This repository is a clickable prototype with fictional sample data. It has no b
 | Screen | What it shows |
 |---|---|
 | **Dashboard** | Revenue, expenses, net profit and cash flow after the loan, per property or combined. Break-even nights for the short-stay unit. |
-| **Properties** | Add or remove units: condo on Airbnb, unit with a monthly tenant, or bedspace building, with an optional bank or Pag-IBIG loan. |
+| **Properties** | Add or remove units: condo on Airbnb, unit with a monthly tenant, multi-door apartment building, or bedspace building, with an optional bank or Pag-IBIG loan. |
+| **Apartments** | Multi-door buildings: each door's tenant, rent status, utang, and its own sub-metered electricity and water bill. |
 | **Calendar** | Add guests (dates, channel, payout) or tap an empty day. Bookings by channel, occupancy and payouts per month. |
 | **Expenses** | Recurring bills, costs created by each booking, and one-off expenses, with filters. |
 | **Bedspace** | Rooms and beds, add or move out tenants, rent status, unpaid balances (utang), payment recording, and sub-meter electricity splitting. |

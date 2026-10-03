@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { LogOut, MessageCircle, Snowflake, UserPlus, Zap } from "lucide-react";
-import type { Bed, PaymentMethod } from "@/data/demo";
 import { sum } from "@/lib/finance";
 import { actions, useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
 import { Card, CardTitle, PageHeader, Select, Stat, StatusBadge } from "@/components/ui";
-import { inputClass } from "@/components/form";
-
-const METHODS: PaymentMethod[] = ["GCash", "Maya", "Cash", "Bank transfer"];
+import { AddTenantForm, ordinal } from "@/components/tenant";
 
 export default function BedspacePage() {
   const money = useMoney();
@@ -85,7 +82,7 @@ export default function BedspacePage() {
                 {room.beds.map((bed) =>
                   addingTo === bed.id ? (
                     <li key={bed.id} className="py-2.5">
-                      <AddTenantForm bed={bed} onDone={() => setAddingTo(null)} />
+                      <AddTenantForm spaceId={bed.id} spaceLabel={`${room.name}, ${bed.label}`} onDone={() => setAddingTo(null)} />
                     </li>
                   ) : (
                     <li key={bed.id} className="flex items-center justify-between gap-3 py-2.5">
@@ -157,45 +154,10 @@ export default function BedspacePage() {
         <CardTitle hint="Change it to match this month's bill. Every room's split updates.">Electricity rate</CardTitle>
         <label className="flex items-center gap-3 text-sm">
           <span className="text-muted">₱ per kWh</span>
-          <input type="number" step="0.1" min="0" value={ratePerKwh} onChange={(e) => setRatePerKwh(Number(e.target.value))} className="w-28 rounded-md border border-border bg-surface px-2.5 py-1.5" />
+          <input type="number" step="0.1" min="0" value={ratePerKwh} onChange={(e) => setRatePerKwh(Number(e.target.value))} className="w-28 rounded-full border border-border bg-surface px-3 py-1.5" />
         </label>
       </Card>
     </>
-  );
-}
-
-function AddTenantForm({ bed, onDone }: { bed: Bed; onDone: () => void }) {
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const f = new FormData(event.currentTarget);
-    actions.addTenant(bed.id, { name: String(f.get("name")).trim(), dueDay: Number(f.get("dueDay")), method: f.get("method") as PaymentMethod });
-    onDone();
-  }
-  return (
-    <form onSubmit={submit} className="space-y-2">
-      <div className="text-xs font-medium text-muted">New tenant · {bed.label}</div>
-      <input name="name" required autoFocus placeholder="Tenant name" className={inputClass} />
-      <div className="grid grid-cols-2 gap-2">
-        <select name="dueDay" defaultValue="5" className={inputClass} aria-label="Rent due day">
-          {[1, 5, 10, 15, 20, 25, 30].map((d) => (
-            <option key={d} value={d}>
-              Due every {ordinal(d)}
-            </option>
-          ))}
-        </select>
-        <select name="method" className={inputClass} aria-label="Payment method">
-          {METHODS.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex gap-2">
-        <button className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-white">Save tenant</button>
-        <button type="button" onClick={onDone} className="rounded-md border border-border px-3 py-1 text-xs">
-          Cancel
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -206,9 +168,4 @@ function MeterInput({ label, value, onChange }: { label: string; value: number; 
       <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="tabular mt-1 w-full rounded border border-border bg-surface px-1.5 py-1" />
     </label>
   );
-}
-
-function ordinal(n: number) {
-  const s = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
-  return `${n}${s}`;
 }

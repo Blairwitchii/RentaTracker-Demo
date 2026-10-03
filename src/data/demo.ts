@@ -3,7 +3,7 @@
 
 import { loanSplit, type Loan } from "@/lib/finance";
 
-export type PropertyMode = "short-stay" | "long-term" | "bedspace";
+export type PropertyMode = "short-stay" | "long-term" | "multi-door" | "bedspace";
 export type PropertyKind = "Condo unit" | "House" | "Apartment" | "Dorm building";
 
 export type Property = {
@@ -18,7 +18,7 @@ export type Property = {
   /** short-stay: what you pay per turnover */
   cleaningFee?: number;
   suppliesPerStay?: number;
-  /** bedspace: past monthly rent collected, by month (demo history) */
+  /** bedspace / multi-door: past monthly rent collected, by month (demo history) */
   incomeHistory?: Record<string, number>;
 };
 
@@ -73,9 +73,22 @@ export type Room = {
   currReading: number;
 };
 
-export type DemoData = { version: number; properties: Property[]; bookings: Booking[]; expenses: Expense[]; rooms: Room[] };
+/** One door (unit) in a multi-door apartment building. Tenants pay their own sub-metered utilities. */
+export type Door = {
+  id: string;
+  propertyId: string;
+  name: string;
+  rent: number;
+  tenant?: Tenant;
+  elecPrev: number;
+  elecCurr: number;
+  waterPrev: number;
+  waterCurr: number;
+};
 
-export const DATA_VERSION = 2;
+export type DemoData = { version: number; properties: Property[]; bookings: Booking[]; expenses: Expense[]; rooms: Room[]; doors: Door[] };
+
+export const DATA_VERSION = 3;
 export const TODAY = "2026-10-03";
 
 /** The 12 months the dashboard reports on. */
@@ -150,6 +163,20 @@ export function makeRooms(propertyId: string, count: number, bedsPerRoom: number
   }));
 }
 
+/** Builds empty doors for a multi-door apartment. */
+export function makeDoors(propertyId: string, count: number, rent: number): Door[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${propertyId}-D${i + 1}`,
+    propertyId,
+    name: `Door ${i + 1}`,
+    rent,
+    elecPrev: 0,
+    elecCurr: 0,
+    waterPrev: 0,
+    waterCurr: 0,
+  }));
+}
+
 // ---- seeded random ----
 function mulberry32(seed: number) {
   return () => {
@@ -199,7 +226,17 @@ export function createDemoData(): DemoData {
     mode: "bedspace",
     incomeHistory: Object.fromEntries(MONTHS.map((m, i) => [m, occupiedByMonth[i] * 3850])),
   };
-  const properties = [sunset, azure, casaverde];
+  const villaDoors = [6, 6, 5, 6, 6, 6, 5, 5, 6, 6, 5, 5];
+  const villarosa: Property = {
+    id: "villarosa",
+    name: "Villa Rosa Apartments (6-door)",
+    kind: "Apartment",
+    location: "Marikina",
+    mode: "multi-door",
+    loan: { principal: 1_800_000, annualRate: 0.0625, years: 15, startMonth: "2023-06" },
+    incomeHistory: Object.fromEntries(MONTHS.map((m, i) => [m, villaDoors[i] * 8500])),
+  };
+  const properties = [sunset, azure, villarosa, casaverde];
 
   // ---- short-stay bookings, including a few upcoming ones ----
   const bookings: Booking[] = [];
@@ -258,6 +295,31 @@ export function createDemoData(): DemoData {
     }
   }
 
+  // ---- multi-door apartment ----
+  const doors = makeDoors("villarosa", 6, 8500).map((door, i) => ({
+    ...door,
+    rent: i < 2 ? 9500 : 8500, // ground-floor doors with a small yard
+    elecPrev: [2310, 1984, 2675, 1420, 3011, 0][i],
+    elecCurr: [2498, 2131, 2860, 1544, 3207, 0][i],
+    waterPrev: [412, 388, 501, 266, 455, 0][i],
+    waterCurr: [431, 404, 523, 279, 476, 0][i],
+  }));
+  {
+    const families = ["Dela Cruz family", "Mr. & Mrs. Ocampo", "Rhea S.", "Bautista family", "Jun & Liza P."];
+    const statuses: PaymentStatus[] = ["paid", "paid", "overdue", "due-soon", "paid"];
+    families.forEach((name, i) => {
+      doors[i].tenant = {
+        name,
+        since: `202${i % 2 ? 4 : 5}-0${i + 2}-01`,
+        dueDay: [1, 15, 5, 10, 1][i],
+        balance: statuses[i] === "overdue" ? doors[i].rent : 0,
+        status: statuses[i],
+        lastPayment: statuses[i] === "overdue" ? "2026-08-05" : "2026-09-0" + (i + 1),
+        method: (["GCash", "Bank transfer", "Cash", "GCash", "Maya"] as PaymentMethod[])[i],
+      };
+    });
+  }
+
   // ---- expenses (booking-driven costs are calculated in reports, not stored) ----
   let id = 1;
   const expenses: Expense[] = [
@@ -268,6 +330,10 @@ export function createDemoData(): DemoData {
       { description: "Mortgage redemption insurance", category: "Insurance", amount: 1150, day: 15 },
     ], "sunset"),
     ...recurringExpenses(azure, [{ description: "Association dues", category: "Association dues", amount: 3100, day: 5 }], "azure"),
+    ...recurringExpenses(villarosa, [
+      { description: "Common area lights & water pump", category: "Electricity", amount: 650, day: 12 },
+      { description: "Garbage collection", category: "Other", amount: 300, day: 20 },
+    ], "villarosa"),
     ...recurringExpenses(casaverde, [
       { description: "Building lease", category: "Lease", amount: 28_000, day: 1 },
       { description: "Internet (shared Wi-Fi)", category: "Internet", amount: 1699, day: 8 },
@@ -282,15 +348,17 @@ export function createDemoData(): DemoData {
     add("sunset", `${month}-12`, "Electricity bill", "Electricity", 1200 + nights * 95);
     add("sunset", `${month}-14`, "Water bill", "Water", 250 + nights * 18);
     if (rand() < 0.3) add("sunset", `${month}-${between(10, 25)}`, pick(["Aircon cleaning", "Shower head replacement", "Door lock battery", "Repaint touch-up"]), "Repairs", between(400, 2500));
+    if (rand() < 0.35) add("villarosa", `${month}-${between(8, 26)}`, pick(["Leaking faucet, Door 3", "Gate lock replacement", "Septic declogging", "Roof gutter cleaning", "Repaint, Door 6"]), "Repairs", between(600, 4500));
     if (rand() < 0.2) add("azure", `${month}-18`, pick(["Plumbing repair", "Ref gasket replacement", "Water heater check"]), "Repairs", between(800, 3500));
     add("casaverde", `${month}-10`, "Common area electricity", "Electricity", between(2600, 3400));
     add("casaverde", `${month}-12`, "Water bill", "Water", between(2200, 2900));
     if (rand() < 0.35) add("casaverde", `${month}-${between(10, 25)}`, pick(["Bunk bed repair", "Electric fan replacement", "Pest control", "Toilet repair"]), "Repairs", between(500, 3000));
   }
   add("azure", "2026-01-20", "Real property tax (annual)", "Taxes & permits", 6800);
+  add("villarosa", "2026-01-20", "Real property tax (annual)", "Taxes & permits", 14_500);
   add("sunset", "2026-01-22", "Business permit renewal", "Taxes & permits", 7500);
   add("casaverde", "2026-01-22", "Business permit renewal", "Taxes & permits", 5200);
   add("sunset", "2026-04-10", "Bookkeeping & BIR filing", "Accounting", 3000);
 
-  return { version: DATA_VERSION, properties, bookings, expenses, rooms };
+  return { version: DATA_VERSION, properties, bookings, expenses, rooms, doors };
 }

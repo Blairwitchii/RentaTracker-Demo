@@ -8,13 +8,16 @@ import {
   DATA_VERSION,
   TODAY,
   createDemoData,
+  makeDoors,
   makeRooms,
   recurringExpenses,
   type Booking,
   type DemoData,
+  type Door,
   type Expense,
   type PaymentMethod,
   type Property,
+  type Tenant,
 } from "@/data/demo";
 
 const KEY = "rt-demo-data";
@@ -58,11 +61,13 @@ export type NewProperty = Omit<Property, "id"> & {
   bedsPerRoom?: number;
   bedRent?: number;
   aircon?: boolean;
+  doors?: number;
+  doorRent?: number;
 };
 
 export const actions = {
   addProperty(input: NewProperty) {
-    const { monthlyCosts, rooms, bedsPerRoom, bedRent, aircon, ...rest } = input;
+    const { monthlyCosts, rooms, bedsPerRoom, bedRent, aircon, doors, doorRent, ...rest } = input;
     const property: Property = { ...rest, id: newId("P") };
     const bills = monthlyCosts > 0 ? [{ description: "Monthly dues & fixed bills", category: "Association dues", amount: monthlyCosts, day: 5 }] : [];
     update((d) => ({
@@ -70,6 +75,7 @@ export const actions = {
       properties: [...d.properties, property],
       expenses: [...d.expenses, ...recurringExpenses(property, bills, property.id)],
       rooms: property.mode === "bedspace" ? [...d.rooms, ...makeRooms(property.id, rooms ?? 1, bedsPerRoom ?? 4, bedRent ?? 3500, aircon ?? false)] : d.rooms,
+      doors: property.mode === "multi-door" ? [...d.doors, ...makeDoors(property.id, doors ?? 4, doorRent ?? 8000)] : d.doors,
     }));
     return property.id;
   },
@@ -81,6 +87,7 @@ export const actions = {
       bookings: d.bookings.filter((b) => b.propertyId !== id),
       expenses: d.expenses.filter((e) => e.propertyId !== id),
       rooms: d.rooms.filter((r) => r.propertyId !== id),
+      doors: d.doors.filter((x) => x.propertyId !== id),
     }));
   },
 
@@ -96,16 +103,21 @@ export const actions = {
     update((d) => ({ ...d, expenses: [...d.expenses, { ...expense, id: newId("E") }] }));
   },
 
-  addTenant(bedId: string, tenant: { name: string; dueDay: number; method: PaymentMethod }) {
-    updateBed(bedId, (bed) => ({ ...bed, tenant: { ...tenant, since: TODAY, balance: 0, status: "paid", lastPayment: TODAY } }));
+  // Tenant actions work on any bed or door id.
+  addTenant(spaceId: string, tenant: { name: string; dueDay: number; method: PaymentMethod }) {
+    updateTenant(spaceId, () => ({ ...tenant, since: TODAY, balance: 0, status: "paid", lastPayment: TODAY }));
   },
 
-  removeTenant(bedId: string) {
-    updateBed(bedId, (bed) => ({ ...bed, tenant: undefined }));
+  removeTenant(spaceId: string) {
+    updateTenant(spaceId, () => undefined);
   },
 
-  recordPayment(bedId: string) {
-    updateBed(bedId, (bed) => (bed.tenant ? { ...bed, tenant: { ...bed.tenant, balance: 0, status: "paid", lastPayment: TODAY } } : bed));
+  recordPayment(spaceId: string) {
+    updateTenant(spaceId, (t) => t && { ...t, balance: 0, status: "paid", lastPayment: TODAY });
+  },
+
+  setDoorReading(doorId: string, field: "elecPrev" | "elecCurr" | "waterPrev" | "waterCurr", value: number) {
+    update((d) => ({ ...d, doors: d.doors.map((x: Door) => (x.id === doorId ? { ...x, [field]: value } : x)) }));
   },
 
   setReading(roomId: string, field: "prevReading" | "currReading", value: number) {
@@ -117,9 +129,10 @@ export const actions = {
   },
 };
 
-function updateBed(bedId: string, change: (bed: DemoData["rooms"][number]["beds"][number]) => DemoData["rooms"][number]["beds"][number]) {
+function updateTenant(spaceId: string, change: (tenant: Tenant | undefined) => Tenant | undefined) {
   update((d) => ({
     ...d,
-    rooms: d.rooms.map((room) => ({ ...room, beds: room.beds.map((bed) => (bed.id === bedId ? change(bed) : bed)) })),
+    rooms: d.rooms.map((room) => ({ ...room, beds: room.beds.map((bed) => (bed.id === spaceId ? { ...bed, tenant: change(bed.tenant) } : bed)) })),
+    doors: d.doors.map((door) => (door.id === spaceId ? { ...door, tenant: change(door.tenant) } : door)),
   }));
 }

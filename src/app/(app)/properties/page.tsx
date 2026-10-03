@@ -8,18 +8,20 @@ import { monthlyPayment } from "@/lib/finance";
 import { MODE_LABEL } from "@/lib/reports";
 import { actions, useDemoData } from "@/lib/store";
 import { useMoney } from "@/lib/currency";
-import { Card, PageHeader } from "@/components/ui";
+import { Card, PageHeader, primaryButton, secondaryButton } from "@/components/ui";
 import { Field, inputClass } from "@/components/form";
 
 const KINDS: PropertyKind[] = ["Condo unit", "House", "Apartment", "Dorm building"];
 const MODE_HELP: Record<PropertyMode, string> = {
   "short-stay": "Nightly guests from Airbnb, Booking.com or Facebook",
-  "long-term": "One tenant paying monthly rent",
+  "long-term": "One tenant paying monthly rent (condo, house, single unit)",
+  "multi-door": "An apartment building with several doors, one tenant each",
   bedspace: "Rooms with beds rented per head",
 };
 const MANAGE_LINK: Record<PropertyMode, { href: string; label: string }> = {
   "short-stay": { href: "/calendar", label: "Bookings & guests" },
   "long-term": { href: "/expenses", label: "Expenses" },
+  "multi-door": { href: "/apartments", label: "Doors & tenants" },
   bedspace: { href: "/bedspace", label: "Rooms & tenants" },
 };
 
@@ -41,11 +43,11 @@ export default function PropertiesPage() {
           <>
             <button
               onClick={() => window.confirm("Reset all demo data? Anything you added will be removed.") && actions.reset()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
+              className={secondaryButton}
             >
               <RotateCcw size={15} aria-hidden /> Reset demo
             </button>
-            <button onClick={() => setShowForm((s) => !s)} className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+            <button onClick={() => setShowForm((s) => !s)} className={primaryButton}>
               <Plus size={16} aria-hidden /> Add property
             </button>
           </>
@@ -58,12 +60,13 @@ export default function PropertiesPage() {
         {data.properties.map((p) => {
           const Icon = p.kind === "Dorm building" || p.kind === "House" ? Home : Building2;
           const beds = data.rooms.filter((r) => r.propertyId === p.id).flatMap((r) => r.beds);
+          const doors = data.doors.filter((d) => d.propertyId === p.id);
           const bookings = data.bookings.filter((b) => b.propertyId === p.id).length;
           return (
             <Card key={p.id} className="flex flex-col">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand">
                     <Icon size={20} aria-hidden />
                   </span>
                   <div className="min-w-0">
@@ -93,6 +96,14 @@ export default function PropertiesPage() {
                     <dd className="tabular text-right font-medium">{money.format(p.monthlyRent ?? 0)}</dd>
                   </>
                 )}
+                {p.mode === "multi-door" && (
+                  <>
+                    <dt className="text-muted">Doors occupied</dt>
+                    <dd className="text-right font-medium">
+                      {doors.filter((d) => d.tenant).length} / {doors.length}
+                    </dd>
+                  </>
+                )}
                 {p.mode === "bedspace" && (
                   <>
                     <dt className="text-muted">Beds occupied</dt>
@@ -105,7 +116,7 @@ export default function PropertiesPage() {
                 <dd className="tabular text-right font-medium">{p.loan ? `${money.format(monthlyPayment(p.loan))}/mo` : "None"}</dd>
               </dl>
 
-              <Link href={MANAGE_LINK[p.mode].href} className="mt-4 rounded-md border border-border py-1.5 text-center text-sm font-medium hover:bg-background">
+              <Link href={MANAGE_LINK[p.mode].href} className="mt-4 rounded-full border border-border py-2 text-center text-sm font-medium hover:bg-surface-soft">
                 {MANAGE_LINK[p.mode].label} →
               </Link>
             </Card>
@@ -135,6 +146,7 @@ function AddPropertyForm({ onDone }: { onDone: () => void }) {
       monthlyCosts: php("monthlyCosts"),
       ...(mode === "short-stay" && { cleaningFee: php("cleaningFee"), suppliesPerStay: php("suppliesPerStay") }),
       ...(mode === "long-term" && { monthlyRent: php("monthlyRent") }),
+      ...(mode === "multi-door" && { doors: num("doors"), doorRent: php("doorRent") }),
       ...(mode === "bedspace" && { rooms: num("rooms"), bedsPerRoom: num("bedsPerRoom"), bedRent: php("bedRent"), aircon: f.get("aircon") === "on" }),
       ...(hasLoan && { loan: { principal: php("loanAmount"), annualRate: num("loanRate") / 100, years: num("loanYears"), startMonth: String(f.get("loanStart")) } }),
     });
@@ -147,9 +159,9 @@ function AddPropertyForm({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit} className="space-y-5">
         <fieldset>
           <legend className="mb-2 text-sm font-semibold">How is it rented?</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {(Object.keys(MODE_HELP) as PropertyMode[]).map((m) => (
-              <label key={m} className={`cursor-pointer rounded-lg border p-3 text-sm ${mode === m ? "border-brand bg-brand-soft" : "border-border"}`}>
+              <label key={m} className={`cursor-pointer rounded-2xl border p-3 text-sm ${mode === m ? "border-brand bg-brand-soft" : "border-border"}`}>
                 <input type="radio" name="mode" value={m} checked={mode === m} onChange={() => setMode(m)} className="sr-only" />
                 <span className="font-medium">{MODE_LABEL[m]}</span>
                 <span className="mt-0.5 block text-xs text-muted">{MODE_HELP[m]}</span>
@@ -163,7 +175,7 @@ function AddPropertyForm({ onDone }: { onDone: () => void }) {
             <input name="name" required placeholder="e.g. Seaview Tower — Unit 8B" className={inputClass} />
           </Field>
           <Field label="Type">
-            <select name="kind" defaultValue={mode === "bedspace" ? "Dorm building" : "Condo unit"} key={mode} className={inputClass}>
+            <select name="kind" defaultValue={mode === "bedspace" ? "Dorm building" : mode === "multi-door" ? "Apartment" : "Condo unit"} key={mode} className={inputClass}>
               {KINDS.map((k) => (
                 <option key={k}>{k}</option>
               ))}
@@ -192,6 +204,16 @@ function AddPropertyForm({ onDone }: { onDone: () => void }) {
             <Field label={`Monthly rent (${c})`}>
               <input name="monthlyRent" type="number" min="0" step="any" required defaultValue={money.fromPhp(18000).toFixed(0)} className={inputClass} />
             </Field>
+          )}
+          {mode === "multi-door" && (
+            <>
+              <Field label="Number of doors">
+                <input name="doors" type="number" min="1" max="50" defaultValue={4} className={inputClass} />
+              </Field>
+              <Field label={`Rent per door (${c})`}>
+                <input name="doorRent" type="number" min="0" step="any" defaultValue={money.fromPhp(8000).toFixed(0)} className={inputClass} />
+              </Field>
+            </>
           )}
           {mode === "bedspace" && (
             <>
@@ -237,8 +259,8 @@ function AddPropertyForm({ onDone }: { onDone: () => void }) {
         <p className="text-xs text-muted">Demo: your monthly bills and loan are filled in for the last 12 months so the dashboard has something to show.</p>
 
         <div className="flex gap-2">
-          <button className="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white">Save property</button>
-          <button type="button" onClick={onDone} className="rounded-md border border-border px-4 py-1.5 text-sm">
+          <button className={primaryButton}>Save property</button>
+          <button type="button" onClick={onDone} className={secondaryButton}>
             Cancel
           </button>
         </div>

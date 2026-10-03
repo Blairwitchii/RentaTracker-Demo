@@ -178,7 +178,7 @@ function MoneyInput({ label, php, onChange }: { label: string; php: number; onCh
         min="0"
         value={Math.round(money.fromPhp(php) * 100) / 100}
         onChange={(e) => onChange(money.toPhp(Number(e.target.value)))}
-        className="tabular mt-1 w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
+        className="tabular mt-1 w-full rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
       />
     </label>
   );

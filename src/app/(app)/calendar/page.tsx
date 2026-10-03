@@ -72,7 +72,7 @@ export default function CalendarPage() {
             {units.length > 1 && (
               <Select label="Unit" value={property.id} onChange={setPropertyId} options={units.map((u) => ({ value: u.id, label: u.name }))} />
             )}
-            <button onClick={() => openForm(TODAY)} className="inline-flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+            <button onClick={() => openForm(TODAY)} className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
               <Plus size={16} aria-hidden /> Add booking
             </button>
           </>
@@ -100,14 +100,14 @@ export default function CalendarPage() {
           {property.name} <span className="font-normal text-muted">· {property.location}</span>
         </h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} className="rounded-md border border-border bg-surface p-1.5 disabled:opacity-40" aria-label="Previous month">
+          <button onClick={() => setIndex((i) => Math.max(0, i - 1))} disabled={index === 0} className="rounded-full border border-border bg-surface p-1.5 disabled:opacity-40" aria-label="Previous month">
             <ChevronLeft size={18} />
           </button>
           <span className="w-32 text-center text-sm font-medium">{monthLabel(month, "long")}</span>
           <button
             onClick={() => setIndex((i) => Math.min(CALENDAR_MONTHS.length - 1, i + 1))}
             disabled={index === CALENDAR_MONTHS.length - 1}
-            className="rounded-md border border-border bg-surface p-1.5 disabled:opacity-40"
+            className="rounded-full border border-border bg-surface p-1.5 disabled:opacity-40"
             aria-label="Next month"
           >
             <ChevronRight size={18} />
@@ -153,7 +153,7 @@ export default function CalendarPage() {
                   <button
                     key={date}
                     onClick={() => openForm(date)}
-                    className={`group flex min-h-16 flex-col rounded-md border bg-background p-1.5 text-left hover:border-brand ${isToday ? "border-brand" : "border-border"}`}
+                    className={`group flex min-h-16 flex-col rounded-xl border bg-surface-soft p-1.5 text-left hover:border-brand ${isToday ? "border-brand" : "border-border"}`}
                     aria-label={`Add booking on ${shortDate(date)}`}
                   >
                     <span className="text-xs font-medium text-foreground">{d + 1}</span>
@@ -165,7 +165,7 @@ export default function CalendarPage() {
                 <div
                   key={date}
                   title={`${booking.guest} · ${booking.channel} · ${booking.nights} night(s)`}
-                  className={`flex min-h-16 flex-col rounded-md border p-1.5 ${isToday ? "border-brand" : "border-transparent"}`}
+                  className={`flex min-h-16 flex-col rounded-xl border p-1.5 ${isToday ? "border-brand" : "border-transparent"}`}
                   style={{ background: `color-mix(in srgb, ${CHANNEL_COLOR[booking.channel]} 16%, white)` }}
                 >
                   <span className="text-xs font-medium text-foreground">{d + 1}</span>
@@ -277,8 +277,8 @@ function AddBookingForm({
         </Field>
         {error && <p className="text-sm text-critical sm:col-span-2 lg:col-span-3">{error}</p>}
         <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
-          <button className="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white">Save booking</button>
-          <button type="button" onClick={() => onDone()} className="rounded-md border border-border px-4 py-1.5 text-sm">
+          <button className="rounded-full bg-brand px-4 py-1.5 text-sm font-medium text-white">Save booking</button>
+          <button type="button" onClick={() => onDone()} className="rounded-full border border-border px-4 py-1.5 text-sm">
             Cancel
           </button>
         </div>
